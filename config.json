@@ -12,8 +12,9 @@
       "spf_known_includes": [],
       "spf_legacy_includes": ["servers.mcsv.net"],
       "dkim_selectors": {
-        "google": "Google Workspace"
+        "google2026": "Google Workspace"
       },
+      "_dkim_rotation_note": "Rotated from the 1024-bit 'google' selector to 2048-bit 'google2026' on 2026-10-27. Delete the old google._domainkey TXT record in GoDaddy after ~2026-11-03.",
       "dkim_expected_providers": ["Google Workspace", "Amazon SES"],
       "_dkim_note": "SES Easy DKIM publishes 3 random-token selectors. Paste them from SES console > Verified identities > blossomstreetventures.com > DKIM, e.g. \"abc123token\": \"Amazon SES\". Until then the SES DKIM check reports WARN.",
       "mx_expected_suffixes": ["google.com", "googlemail.com"]
