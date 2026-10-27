@@ -30,6 +30,10 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
+    if os.name == "nt":
+        os.system("")  # turns on ANSI color support in the Windows console
+    # Never crash on a symbol the console/log file can't encode (e.g. cp1252 when redirected).
+    sys.stdout.reconfigure(errors="replace")
     if not os.path.exists(args.config):
         sys.exit(f"Config not found: {args.config} (pass --config path/to/config.json)")
     cfg = load_config(args.config)

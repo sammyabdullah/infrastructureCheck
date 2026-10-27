@@ -169,6 +169,6 @@ def to_json(run):
 def write_markdown(run, reports_dir):
     os.makedirs(reports_dir, exist_ok=True)
     path = os.path.join(reports_dir, f"infra_audit_{run['file_stamp']}.md")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(render_markdown(run))
     return path
