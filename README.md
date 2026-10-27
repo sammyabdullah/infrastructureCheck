@@ -130,7 +130,7 @@ Until you approve it, those checks show a single INFO line: "Account security ch
 | mailboxes | Gmail settings | Auto-forwarding (FAIL unless allowlisted); registered forwarding addresses; filters that forward, delete, archive or spam mail; delegates; unrecognized send-as aliases; vacation responder. |
 | mailboxes | Account security | Admin SDK, needs approval (see Scopes). |
 | mailboxes | Sending activity | Sent messages per day for the last 14 full days, plus today. WARN on a day above 2× the trailing average (minimum 10 sends), and on a mailbox with no sends in 14+ days while the others are active. |
-| mailboxes | Hard bounces | Count of addresses whose latest HARD bounce in HardBounceCheck's `bounces.db` was in the last 7 days, per mailbox. That database keeps one row per address, so this counts addresses, not bounce events. |
+| mailboxes | Hard bounces | Count of addresses whose latest HARD bounce in HardBounceCheck's `bounces.db` was in the last 7 days, per mailbox. That database keeps one row per address, so this counts addresses, not bounce events. WARNs if HardBounceCheck hasn't scanned a mailbox in over 7 days (from its `state.json`), so stale zeros don't read as clean. |
 
 A **DNS sanity check** runs first: if `google.com` or `gmail.com` don't resolve, the DNS and reputation sections are reported as ERROR instead of producing fake "no SPF record" FAILs and fake "not listed" passes.
 

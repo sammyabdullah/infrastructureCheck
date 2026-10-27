@@ -1,6 +1,7 @@
 """Account-level checks across all mailboxes: Admin SDK security status,
 sending activity, and hard bounces from HardBounceCheck's database."""
 
+import json
 import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -206,9 +207,20 @@ def check_hard_bounces(ctx):
             m = m.strip().lower()
             if m in counts:
                 counts[m] += 1
+    last_scan = _last_bounce_scan(path, ctx.cfg["mailboxes"])
     warn_at = ctx.cfg.thresholds["hard_bounces_7d_warn"]
     out = []
     for m, n in counts.items():
+        scanned = last_scan.get(m)
+        age = (ctx.now - scanned).days if scanned else None
+        if age is None or age > 7:
+            when = f"last scanned {scanned.date()} ({age} days ago)" if scanned else "never scanned"
+            out.append(Result("bounces.fresh", m, WARN, f"Bounce data is stale: HardBounceCheck {when}",
+                              detail=f"The count below ({n}) only covers bounces found up to then. From {path}",
+                              why="Bounces since the last scan are invisible, so a rising bounce rate would go unnoticed.",
+                              fix="Run HardBounceCheck (python main.py in its folder) at least weekly, then re-run infra_audit."))
+        else:
+            out.append(Result("bounces.fresh", m, PASS, f"Bounce data current (scanned {scanned.date()})"))
         if n >= warn_at:
             out.append(Result("bounces.hard_7d", m, WARN, f"{n} hard-bounced addresses in the last 7 days",
                               detail=f"From {path}",
@@ -217,4 +229,25 @@ def check_hard_bounces(ctx):
                                   "send lists; verify new lists (mailerdemon) before sending."))
         else:
             out.append(Result("bounces.hard_7d", m, INFO, f"{n} hard-bounced addresses in the last 7 days"))
+    return out
+
+
+def _last_bounce_scan(db_path, mailboxes):
+    """{mailbox: datetime} of HardBounceCheck's last scan, from the state.json
+    it keeps next to bounces.db; falls back to the database file's mtime."""
+    state_path = os.path.join(os.path.dirname(db_path), "state.json")
+    out = {}
+    try:
+        with open(state_path) as f:
+            state = json.load(f).get("mailboxes", {})
+        for m in mailboxes:
+            iso = (state.get(m) or {}).get("last_checked")
+            if iso:
+                dt = datetime.fromisoformat(iso)
+                out[m] = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (OSError, ValueError, AttributeError):
+        pass
+    if not out:
+        mtime = datetime.fromtimestamp(os.path.getmtime(db_path), tz=timezone.utc)
+        out = {m: mtime for m in mailboxes}
     return out

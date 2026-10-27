@@ -329,9 +329,17 @@ def test_hard_bounces_from_hardbouncecheck_db(cfg, tmp_path):
     conn.commit()
     conn.close()
     cfg["bounce_db"] = str(db)
-    r = {x.target: x for x in accounts.check_hard_bounces(make_ctx(cfg, {}, tmp_path, now))}
+    (tmp_path / "state.json").write_text(json.dumps({"mailboxes": {
+        f"sammy@{ROOT}": {"last_checked": (now - timedelta(days=1)).isoformat()},
+        f"s@{ROOT}": {"last_checked": (now - timedelta(days=90)).isoformat()}}}))
+    results = accounts.check_hard_bounces(make_ctx(cfg, {}, tmp_path, now))
+    r = {x.target: x for x in results if x.check == "bounces.hard_7d"}
+    fresh = {x.target: x for x in results if x.check == "bounces.fresh"}
     assert r[f"sammy@{ROOT}"].status == WARN and r[f"sammy@{ROOT}"].title.startswith("6 ")
     assert r[f"partner@{ROOT}"].title.startswith("0 ")
+    assert fresh[f"sammy@{ROOT}"].status == PASS
+    assert fresh[f"s@{ROOT}"].status == WARN and "90 days" in fresh[f"s@{ROOT}"].title
+    assert fresh[f"partner@{ROOT}"].status == WARN and "never" in fresh[f"partner@{ROOT}"].title
 
 
 def test_hard_bounces_missing_db_is_silent(cfg, tmp_path):
