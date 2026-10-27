@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets - never commit
+service_account.json
+*-service-account*.json
+
+# Local run history and reports (contain security findings about your setup)
+data/
+reports/*
+!reports/.gitkeep

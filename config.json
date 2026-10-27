@@ -1,0 +1,141 @@
+{
+  "_comment": "All infra_audit settings. Relative paths are resolved against this file's folder. Keys starting with _ are notes and are ignored.",
+
+  "root_domain": "blossomstreetventures.com",
+
+  "sending_domains": [
+    {
+      "domain": "blossomstreetventures.com",
+      "label": "Google Workspace (5 mailboxes) + SES DKIM identity",
+      "active": true,
+      "spf_required_includes": ["_spf.google.com"],
+      "spf_known_includes": [],
+      "spf_legacy_includes": ["servers.mcsv.net"],
+      "dkim_selectors": {
+        "google": "Google Workspace"
+      },
+      "dkim_expected_providers": ["Google Workspace", "Amazon SES"],
+      "_dkim_note": "SES Easy DKIM publishes 3 random-token selectors. Paste them from SES console > Verified identities > blossomstreetventures.com > DKIM, e.g. \"abc123token\": \"Amazon SES\". Until then the SES DKIM check reports WARN.",
+      "mx_expected_suffixes": ["google.com", "googlemail.com"]
+    },
+    {
+      "domain": "send.blossomstreetventures.com",
+      "label": "Amazon SES custom MAIL FROM (bounce) subdomain",
+      "active": true,
+      "spf_required_includes": ["amazonses.com"],
+      "spf_known_includes": [],
+      "spf_legacy_includes": [],
+      "dkim_selectors": {},
+      "dkim_expected_providers": [],
+      "mx_expected_suffixes": ["amazonses.com"]
+    }
+  ],
+
+  "cname_hosts": {
+    "_comment": "Hostnames checked for dangling CNAMEs (target no longer resolves = takeover risk). Value is a short note shown in the report.",
+    "k2._domainkey.blossomstreetventures.com": "legacy Mailchimp DKIM (not actively sending)",
+    "k3._domainkey.blossomstreetventures.com": "legacy Mailchimp DKIM (not actively sending)",
+    "email.blossomstreetventures.com": "GoDaddy (email.secureserver.net), not used for sending",
+    "www.blossomstreetventures.com": "website",
+    "mta-sts.blossomstreetventures.com": "MTA-STS policy host (if set up)"
+  },
+
+  "dmarc": {
+    "expected_policy": "reject"
+  },
+
+  "website_hosts": ["blossomstreetventures.com", "www.blossomstreetventures.com"],
+  "check_mx_starttls": true,
+
+  "reputation_lists": [
+    {
+      "name": "Spamhaus DBL",
+      "zone": "dbl.spamhaus.org",
+      "test_domain": "dbltest.com",
+      "blocked_codes": ["127.255.255.252", "127.255.255.254", "127.255.255.255", "127.0.1.255"],
+      "delist_url": "https://check.spamhaus.org/"
+    },
+    {
+      "name": "Spamhaus ZRD (newly observed domains)",
+      "zone": "zrd.spamhaus.org",
+      "blocked_codes": ["127.255.255.252", "127.255.255.254", "127.255.255.255"],
+      "delist_url": "https://check.spamhaus.org/"
+    },
+    {
+      "name": "SURBL multi",
+      "zone": "multi.surbl.org",
+      "test_domain": "test.surbl.org",
+      "blocked_codes": ["127.0.0.1"],
+      "delist_url": "https://www.surbl.org/surbl-analysis"
+    },
+    {
+      "name": "URIBL black",
+      "zone": "black.uribl.com",
+      "test_domain": "test.uribl.com",
+      "blocked_codes": ["127.0.0.1"],
+      "delist_url": "https://admin.uribl.com/"
+    },
+    {
+      "name": "SEM URIBL",
+      "zone": "uribl.spameatingmonkey.net",
+      "blocked_codes": [],
+      "delist_url": "https://spameatingmonkey.com/"
+    }
+  ],
+
+  "mailboxes": [
+    "sammy@blossomstreetventures.com",
+    "s@blossomstreetventures.com",
+    "partner@blossomstreetventures.com",
+    "founder@blossomstreetventures.com",
+    "cofounder@blossomstreetventures.com"
+  ],
+  "allowed_send_as": [
+    "sammy@blossomstreetventures.com",
+    "s@blossomstreetventures.com",
+    "partner@blossomstreetventures.com",
+    "founder@blossomstreetventures.com",
+    "cofounder@blossomstreetventures.com"
+  ],
+  "allowed_forwarding": [],
+  "allowed_delegates": [],
+
+  "google": {
+    "service_account_file": "service_account.json",
+    "admin_email": "sammy@blossomstreetventures.com",
+    "_scopes_note": "gmail.readonly is already authorized for this service account (HardBounceCheck / Engagement-Tracker). The Admin SDK checks need admin.directory.user.readonly, which is NOT authorized yet. Set directory_scope_approved to true only after you add that scope in Admin console > Security > API controls > Domain-wide delegation.",
+    "directory_scope_approved": false
+  },
+
+  "bounce_db": "../HardBounceCheck/bounces.db",
+
+  "history_db": "data/infra_audit.db",
+  "reports_dir": "reports",
+
+  "thresholds": {
+    "spf_lookups_warn": 8,
+    "spf_lookups_fail": 10,
+    "dkim_min_bits": 2048,
+    "dkim_key_age_warn_days": 730,
+    "domain_expiry_warn_days": 60,
+    "domain_expiry_fail_days": 14,
+    "tls_expiry_warn_days": 21,
+    "tls_expiry_fail_days": 7,
+    "activity_days": 14,
+    "activity_spike_multiplier": 2.0,
+    "activity_spike_min_count": 10,
+    "last_login_warn_days": 30,
+    "hard_bounces_7d_warn": 5
+  },
+
+  "network": {
+    "dns_timeout": 4,
+    "dns_lifetime": 8,
+    "dns_retries": 2,
+    "dns_nameservers": [],
+    "_dns_note": "Leave dns_nameservers empty to use your system resolver. Do NOT set 8.8.8.8/1.1.1.1: Spamhaus and URIBL refuse queries from big public resolvers and the reputation checks will ERROR.",
+    "http_timeout": 10,
+    "smtp_timeout": 10,
+    "workers": 32
+  }
+}
