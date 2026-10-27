@@ -46,11 +46,27 @@ python -m infra_audit --verbose          # also list every PASS/INFO
 python -m infra_audit --no-save          # don't record history or write a report
 ```
 
-Exit codes: `0` healthy, `1` WARN or ERROR present, `2` a FAIL or a regression. This is useful with cron:
+Exit codes: `0` healthy, `1` WARN or ERROR present, `2` a FAIL or a regression.
 
-```cron
-30 8 * * 1-5 cd /path/to/infrastructureCheck && .venv/bin/python -m infra_audit >> data/cron.log 2>&1
+### Scheduled daily run (Windows)
+
+`scripts\run_scheduled.bat` runs two things in order:
+
+1. HardBounceCheck (`..\..\Old claude\Claude Hard Bounce Check`), so the bounce data is fresh.
+2. A full infra_audit run.
+
+Everything it prints is appended to `data\scheduled_run.log`. If infra_audit finds a FAIL or a regression, the new report opens in Notepad. WARNs alone don't pop anything up.
+
+Register it once, from the `infrastructureCheck` folder:
+
 ```
+powershell -ExecutionPolicy Bypass -File scripts\setup_schedule.ps1
+```
+
+This creates the task "infra_audit daily". It runs at 7:43 AM, or as soon as the PC is on if it was off at that time.
+
+- Test it now: `powershell -Command "Start-ScheduledTask -TaskName 'infra_audit daily'"`
+- Remove it: `powershell -Command "Unregister-ScheduledTask -TaskName 'infra_audit daily' -Confirm:$false"`
 
 ## Reading the report
 
