@@ -60,6 +60,40 @@ def count_lookups(dns, record, seen=None, depth=0):
     return count, stale, errors, per_include
 
 
+def include_tree(dns, record, root, seen=None, depth=0):
+    """(all_includes, effective_includes) for an SPF record.
+
+    all_includes: every include anywhere in the tree (a required provider
+    nested inside a managed record still counts).
+    effective_includes: top-level includes, except that includes on your own
+    domain (e.g. GoDaddy Domain Connect's dc-xxxx._spfm.<domain>) are
+    replaced by what they include, so they're judged by the providers inside.
+    """
+    from ..dnsutil import is_within
+
+    seen = set() if seen is None else seen
+    all_inc, effective = [], []
+    for term in split_terms(record):
+        _, name, value = _mech(term)
+        if name not in ("include", "redirect") or not value:
+            continue
+        inc = value.lower().rstrip(".")
+        all_inc.append(inc)
+        child = None
+        if inc not in seen and depth < 10:
+            seen.add(inc)
+            ans = dns.query(inc, "TXT")
+            records = txt_starting(ans, "v=spf1") if ans.ok else []
+            child = records[0] if records else None
+        if child:
+            sub_all, sub_eff = include_tree(dns, child, root, seen, depth + 1)
+            all_inc += sub_all
+            effective += sub_eff if is_within(inc, root) else [inc]
+        elif name == "include":
+            effective.append(inc)
+    return all_inc, effective
+
+
 def check_spf(ctx, target):
     domain = target["domain"]
     t = ctx.cfg.thresholds
@@ -113,7 +147,8 @@ def check_spf(ctx, target):
 
     # Required / legacy / unrecognized includes.
     includes = [v.lower().rstrip(".") for _, n, v in terms if n == "include"]
-    missing = [i for i in required if i not in includes]
+    all_includes, effective = include_tree(ctx.dns, record, ctx.cfg.root, seen={domain})
+    missing = [i for i in required if i not in all_includes]
     if missing:
         out.append(Result("spf.includes", domain, FAIL, "SPF is missing: " + ", ".join(missing),
                           why="Mail from that service will fail SPF and lean entirely on DKIM.",
@@ -139,7 +174,7 @@ def check_spf(ctx, target):
         out.append(Result("spf.legacy", domain, PASS, "No legacy includes in SPF", observed="(none)"))
 
     known = set(required) | {i.lower() for i in target["spf_known_includes"]} | {i.lower() for i in target["spf_legacy_includes"]}
-    unknown = [i for i in includes if i not in known]
+    unknown = sorted({i for i in effective if i not in known})
     if unknown:
         out.append(Result("spf.unknown", domain, WARN, "Unrecognized SPF include(s): " + ", ".join(unknown),
                           why="Each include authorizes a third party to send as your domain. Stale ones are a spoofing path.",

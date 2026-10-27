@@ -17,7 +17,8 @@ DEFAULT_THRESHOLDS = {
     "activity_spike_multiplier": 2.0,
     "activity_spike_min_count": 10,
     "last_login_warn_days": 30,
-    "hard_bounces_7d_warn": 5,
+    "hard_bounce_rate_warn_pct": 1.0,
+    "hard_bounce_rate_fail_pct": 2.0,
 }
 
 DEFAULT_NETWORK = {

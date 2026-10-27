@@ -46,7 +46,8 @@ def check_dmarc(ctx, target):
             if POLICY_RANK.get(inherited, -1) >= POLICY_RANK[expected]:
                 return [Result("dmarc.record", domain, PASS, f"No own DMARC record; inherits sp/p={inherited} from {root}",
                                observed=f"inherit:{inherited}")]
-            return [Result("dmarc.record", domain, FAIL, f"Inherits a weak DMARC policy ({inherited}) from {root}",
+            return [Result("dmarc.record", domain, FAIL if inherited == "none" else WARN,
+                           f"Inherits a weaker DMARC policy ({inherited}) from {root}",
                            why="Spoofed mail from this subdomain won't be rejected.",
                            fix=f"In your DNS provider, edit the TXT record at _dmarc.{root} and set sp={expected} "
                                f"(or remove sp= so it inherits p={expected}).",
@@ -152,8 +153,7 @@ def _check_report_uris(ctx, domain, host, tags, tag, required):
         out.append(Result(check, domain, PASS, f"DMARC {label} reports go to " + ", ".join(addresses),
                           observed=",".join(sorted(addresses))))
 
-    for addr in addresses:
-        rdomain = EMAIL_RE.match(addr).group(1).lower()
+    for rdomain in sorted({EMAIL_RE.match(a).group(1).lower() for a in addresses}):
         if is_within(rdomain, ctx.cfg.root):
             continue
         auth_host = f"{domain}._report._dmarc.{rdomain}"

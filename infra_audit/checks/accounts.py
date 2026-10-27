@@ -208,7 +208,8 @@ def check_hard_bounces(ctx):
             if m in counts:
                 counts[m] += 1
     last_scan = _last_bounce_scan(path, ctx.cfg["mailboxes"])
-    warn_at = ctx.cfg.thresholds["hard_bounces_7d_warn"]
+    sent = _sent_last_7_days(ctx)
+    t = ctx.cfg.thresholds
     out = []
     for m, n in counts.items():
         scanned = last_scan.get(m)
@@ -221,15 +222,39 @@ def check_hard_bounces(ctx):
                               fix="Run HardBounceCheck (python main.py in its folder) at least weekly, then re-run infra_audit."))
         else:
             out.append(Result("bounces.fresh", m, PASS, f"Bounce data current (scanned {scanned.date()})"))
-        if n >= warn_at:
-            out.append(Result("bounces.hard_7d", m, WARN, f"{n} hard-bounced addresses in the last 7 days",
-                              detail=f"From {path}",
-                              why="Hard bounce rates above ~2% get you throttled or spam-foldered by Gmail and Outlook.",
-                              fix="Run HardBounceCheck with --contacts and remove everything in removal_list.csv from your "
-                                  "send lists; verify new lists (mailerdemon) before sending."))
-        else:
-            out.append(Result("bounces.hard_7d", m, INFO, f"{n} hard-bounced addresses in the last 7 days"))
+        out.append(_grade_bounces(m, n, sent.get(m), t, path))
     return out
+
+
+def _grade_bounces(mailbox, bounced, sent, t, path):
+    if not sent:
+        return Result("bounces.hard_7d", mailbox, INFO, f"{bounced} hard-bounced addresses in the last 7 days",
+                      detail="Sent count unavailable, so no bounce rate." if sent is None else "Nothing sent in 7 days.")
+    rate = 100.0 * bounced / sent
+    title = f"Hard bounce rate {rate:.1f}% ({bounced} of {sent} sent in 7 days)"
+    status = FAIL if rate >= t["hard_bounce_rate_fail_pct"] else WARN if rate >= t["hard_bounce_rate_warn_pct"] else PASS
+    if status == PASS:
+        return Result("bounces.hard_7d", mailbox, PASS, title)
+    return Result("bounces.hard_7d", mailbox, status, title,
+                  detail=f"Bounces from {path}",
+                  why="Gmail and Outlook start throttling or spam-foldering senders whose hard bounce rate nears 2%.",
+                  fix="Run HardBounceCheck with --contacts and remove everything in removal_list.csv from your send "
+                      "lists; run new lists through mailerdemon before sending.")
+
+
+def _sent_last_7_days(ctx):
+    """{mailbox: messages sent in the last 7 days}; a mailbox is missing if Gmail couldn't be read."""
+    after = (ctx.now - timedelta(days=7)).timestamp()
+    before = ctx.now.timestamp() + 60
+
+    def one(m):
+        try:
+            return m, _count_sent(ctx.google.gmail(m), after, before)
+        except Exception:
+            return m, None
+
+    with ThreadPoolExecutor(max_workers=len(ctx.cfg["mailboxes"]) or 1) as pool:
+        return {m: n for m, n in pool.map(one, ctx.cfg["mailboxes"]) if n is not None}
 
 
 def _last_bounce_scan(db_path, mailboxes):

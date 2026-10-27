@@ -113,6 +113,22 @@ def test_spf_healthy(cfg, tmp_path):
     assert r["spf.legacy"].status == PASS
 
 
+def test_spf_domain_connect_managed_include(cfg, tmp_path):
+    """SES via GoDaddy Domain Connect: include:dc-xxx._spfm.send.<domain> wraps amazonses.com."""
+    zone = healthy_zone()
+    managed = "dc-fd741b8612._spfm.send." + ROOT
+    zone[("send." + ROOT, "TXT")] = [f"v=spf1 include:{managed} ~all"]
+    zone[(managed, "TXT")] = ["v=spf1 include:amazonses.com ~all"]
+    r = by_check(spf.check_spf(make_ctx(cfg, zone, tmp_path), ses_target(cfg)))
+    assert r["spf.includes"].status == PASS
+    assert r["spf.unknown"].status == PASS
+    zone[(managed, "TXT")] = ["v=spf1 include:sketchy.example ~all"]
+    zone[("sketchy.example", "TXT")] = ["v=spf1 ip4:1.2.3.4 -all"]
+    r = by_check(spf.check_spf(make_ctx(cfg, zone, tmp_path), ses_target(cfg)))
+    assert r["spf.includes"].status == FAIL
+    assert r["spf.unknown"].status == WARN and "sketchy.example" in r["spf.unknown"].title
+
+
 def test_spf_multiple_records_fail(cfg, tmp_path):
     zone = healthy_zone()
     zone[(ROOT, "TXT")] = ["v=spf1 include:_spf.google.com ~all", "v=spf1 include:servers.mcsv.net -all"]
@@ -199,6 +215,21 @@ def test_dmarc_external_rua_authorized(cfg, tmp_path):
     zone[(f"{ROOT}._report._dmarc.vendor.example", "TXT")] = ["v=DMARC1"]
     r = by_check(dmarc.check_dmarc(make_ctx(cfg, zone, tmp_path), root_target(cfg)))
     assert r["dmarc.rua.external"].status == PASS
+
+
+def test_dmarc_subdomain_inherits_quarantine_is_warn(cfg, tmp_path):
+    zone = healthy_zone()
+    zone[("_dmarc." + ROOT, "TXT")] = [f"v=DMARC1; p=reject; sp=quarantine; rua=mailto:dmarc@{ROOT}"]
+    r = dmarc.check_dmarc(make_ctx(cfg, zone, tmp_path), ses_target(cfg))
+    assert r[0].status == WARN and "quarantine" in r[0].title
+
+
+def test_dmarc_external_rua_deduped(cfg, tmp_path):
+    zone = healthy_zone()
+    zone[("_dmarc." + ROOT, "TXT")] = ["v=DMARC1; p=reject; rua=mailto:a@ar.vendor.example, mailto:b@ar.vendor.example"]
+    zone[(f"{ROOT}._report._dmarc.ar.vendor.example", "TXT")] = ["v=DMARC1"]
+    r = [x for x in dmarc.check_dmarc(make_ctx(cfg, zone, tmp_path), root_target(cfg)) if x.check == "dmarc.rua.external"]
+    assert len(r) == 1
 
 
 def test_dmarc_subdomain_inherits(cfg, tmp_path):
@@ -332,11 +363,19 @@ def test_hard_bounces_from_hardbouncecheck_db(cfg, tmp_path):
     (tmp_path / "state.json").write_text(json.dumps({"mailboxes": {
         f"sammy@{ROOT}": {"last_checked": (now - timedelta(days=1)).isoformat()},
         f"s@{ROOT}": {"last_checked": (now - timedelta(days=90)).isoformat()}}}))
-    results = accounts.check_hard_bounces(make_ctx(cfg, {}, tmp_path, now))
+    sent = {f"sammy@{ROOT}": 400, f"s@{ROOT}": 900, f"partner@{ROOT}": 800}  # founder/cofounder: Gmail unreadable
+    accounts_sent = accounts._sent_last_7_days
+    accounts._sent_last_7_days = lambda ctx: sent
+    try:
+        results = accounts.check_hard_bounces(make_ctx(cfg, {}, tmp_path, now))
+    finally:
+        accounts._sent_last_7_days = accounts_sent
     r = {x.target: x for x in results if x.check == "bounces.hard_7d"}
     fresh = {x.target: x for x in results if x.check == "bounces.fresh"}
-    assert r[f"sammy@{ROOT}"].status == WARN and r[f"sammy@{ROOT}"].title.startswith("6 ")
-    assert r[f"partner@{ROOT}"].title.startswith("0 ")
+    assert r[f"sammy@{ROOT}"].status == WARN and "1.5%" in r[f"sammy@{ROOT}"].title   # 6 / 400
+    assert r[f"s@{ROOT}"].status == PASS and "0.7%" in r[f"s@{ROOT}"].title            # 6 / 900
+    assert r[f"partner@{ROOT}"].status == PASS and "0.0%" in r[f"partner@{ROOT}"].title
+    assert r[f"founder@{ROOT}"].status == INFO and "unavailable" in r[f"founder@{ROOT}"].detail
     assert fresh[f"sammy@{ROOT}"].status == PASS
     assert fresh[f"s@{ROOT}"].status == WARN and "90 days" in fresh[f"s@{ROOT}"].title
     assert fresh[f"partner@{ROOT}"].status == WARN and "never" in fresh[f"partner@{ROOT}"].title
