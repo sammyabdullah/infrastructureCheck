@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 
 1. **Service account key.** Copy (or symlink) the same `service_account.json` that HardBounceCheck and Engagement-Tracker use into this folder, or point `google.service_account_file` in `config.json` at it. It is gitignored.
-2. **Bounce database (optional).** `bounce_db` in `config.json` defaults to `../HardBounceCheck/bounces.db`. Point it at wherever that file lives on your Mac. If the file isn't there, the bounce check is skipped silently.
+2. **Bounce database (optional).** `bounce_db` in `config.json` is set to `../../Old claude/Claude Hard Bounce Check/bounces.db` (relative to this folder). Change it if that file moves. If the file isn't there, the bounce check is skipped silently.
 3. **SES DKIM selectors.** SES Easy DKIM uses three random-token selectors. Get them from AWS console > SES > Verified identities > blossomstreetventures.com > Authentication (DKIM). Each record looks like `<token>._domainkey...`. Add them under the root domain's `dkim_selectors`:
    ```json
    "dkim_selectors": {

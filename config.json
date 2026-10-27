@@ -107,7 +107,7 @@
     "directory_scope_approved": false
   },
 
-  "bounce_db": "../HardBounceCheck/bounces.db",
+  "bounce_db": "../../Old claude/Claude Hard Bounce Check/bounces.db",
 
   "history_db": "data/infra_audit.db",
   "reports_dir": "reports",
