@@ -18,8 +18,8 @@ def check_mx(ctx, target):
     if not ans.ok:
         if is_ses:
             fix = (f"In your DNS provider, add an MX record at {domain} with priority 10 pointing to "
-                   "feedback-smtp.<your-SES-region>.amazonses.com (SES console > Verified identities > Custom MAIL FROM shows it).")
-            why = ("SES requires this MX for a custom MAIL FROM; without it SES falls back to amazonses.com and "
+                   "the feedback-smtp...amazonses.com host your sending service lists (Resend: Dashboard > Domains > " + domain + ").")
+            why = ("Resend/Amazon SES require this MX for the bounce subdomain; without it mail falls back to amazonses.com and "
                    "SPF no longer aligns with your domain.")
         else:
             fix = ("In your DNS provider, add an MX record at " + domain + " pointing to smtp.google.com with priority 1 "

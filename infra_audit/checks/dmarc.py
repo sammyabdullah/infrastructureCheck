@@ -112,8 +112,8 @@ def check_dmarc(ctx, target):
     adkim, aspf = tags.get("adkim", "r").lower(), tags.get("aspf", "r").lower()
     ses_active = any("amazonses.com" in (d.get("mx_expected_suffixes") or []) for d in ctx.cfg.active_domains)
     if aspf == "s" and ses_active:
-        out.append(Result("dmarc.alignment", domain, WARN, "aspf=s (strict SPF alignment) with an SES MAIL FROM subdomain",
-                          why="SES mail uses send.<domain> as MAIL FROM, which only aligns under relaxed SPF alignment; "
+        out.append(Result("dmarc.alignment", domain, WARN, "aspf=s (strict SPF alignment) with a Resend/SES bounce subdomain",
+                          why="Resend mail uses send.<domain> as MAIL FROM, which only aligns under relaxed SPF alignment; "
                               "DMARC then rests on DKIM alone.",
                           fix=f"In your DNS provider, edit the TXT record at {host} and set aspf=r (or remove aspf=).",
                           observed=f"adkim={adkim},aspf={aspf}"))

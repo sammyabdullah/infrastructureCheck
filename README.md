@@ -23,16 +23,7 @@ pip install -r requirements.txt
 
 1. **Service account key.** Copy (or symlink) the same `service_account.json` that HardBounceCheck and Engagement-Tracker use into this folder, or point `google.service_account_file` in `config.json` at it. It is gitignored.
 2. **Bounce database (optional).** `bounce_db` in `config.json` is set to `../../Old claude/Claude Hard Bounce Check/bounces.db` (relative to this folder). Change it if that file moves. If the file isn't there, the bounce check is skipped silently.
-3. **SES DKIM selectors.** SES Easy DKIM uses three random-token selectors. Get them from AWS console > SES > Verified identities > blossomstreetventures.com > Authentication (DKIM). Each record looks like `<token>._domainkey...`. Add them under the root domain's `dkim_selectors`:
-   ```json
-   "dkim_selectors": {
-     "google": "Google Workspace",
-     "abc123token": "Amazon SES",
-     "def456token": "Amazon SES",
-     "ghi789token": "Amazon SES"
-   }
-   ```
-   Until you do, you'll see one WARN: "No DKIM selector configured for Amazon SES".
+3. **DKIM selectors.** `dkim_selectors` lists every DKIM key to check: `google2026` (Google Workspace, rotated to 2048-bit on 2026-10-27) and `resend` (Resend). If you add a sending service, add its selector there; its DNS record is named `<selector>._domainkey`.
 
 ## Usage
 
@@ -135,7 +126,7 @@ Until you approve it, those checks show a single INFO line: "Account security ch
 |---|---|---|
 | dns | SPF | Exactly one record; required includes (`_spf.google.com` on root, `amazonses.com` on `send.`); `+all`/`?all` FAIL, no `~all`/`-all` WARN; recursive DNS-lookup count (WARN at 8, FAIL over 10); includes with no SPF record (FAIL: permerror); legacy includes (`servers.mcsv.net`, Mailchimp) flagged as removable with the lookups that removing them frees; unrecognized includes WARN. |
 | dns | DKIM | Each configured selector resolves to a parseable key; WARN under 2048 bits. DNS can't reveal a key's age, so infra_audit records when it first saw each key and WARNs after `dkim_key_age_warn_days`. |
-| dns | DMARC | One record; `p=` must be at least `reject` (anything less is a FAIL); `sp=`, `pct`, alignment; `rua`/`ruf` syntax; external report domains must publish `<yourdomain>._report._dmarc.<theirdomain>`. Subdomains without their own record inherit the root's `sp=`/`p=`. Warns on `aspf=s` because SES's `send.` MAIL FROM needs relaxed SPF alignment. |
+| dns | DMARC | One record; `p=` must be at least `reject` (anything less is a FAIL); `sp=`, `pct`, alignment; `rua`/`ruf` syntax; external report domains must publish `<yourdomain>._report._dmarc.<theirdomain>`. Subdomains without their own record inherit the root's `sp=`/`p=`. Warns on `aspf=s` because Resend's `send.` bounce subdomain needs relaxed SPF alignment. |
 | dns | MX | Present, all hosts at the expected provider (Google for root, `amazonses.com` feedback MX for `send.`), primary priority sane, hosts resolve. Unexpected changes appear in drift. |
 | dns | MTA-STS / TLS-RPT / BIMI / CAA / DNSSEC | INFO when absent, each with a one-line note on what it does. An MTA-STS policy that's unreachable, or that doesn't cover your MX in enforce mode, is a FAIL. A DS record with no DNSKEY is a FAIL. |
 | dns | Nameservers | Queries every authoritative server directly: lame servers, disagreeing NS sets, SOA serial mismatch, and whether the registrar's `.com` delegation matches the zone. |

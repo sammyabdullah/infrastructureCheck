@@ -35,6 +35,10 @@ def regenerate_fix(provider, selector, domain):
         return ("In Google Admin console > Apps > Google Workspace > Gmail > Authenticate email, pick "
                 f"{domain}, click 'Generate new record' with 2048-bit key length, publish the TXT value it shows at "
                 f"{selector}._domainkey.{domain} in your DNS provider, wait for it to resolve, then click 'Start authentication'.")
+    if provider == "Resend":
+        return ("Resend generates this key. In the Resend dashboard > Domains > " + domain + ", look for an option to "
+                "regenerate/rotate the DKIM key at 2048 bits; if there isn't one, ask Resend support for a 2048-bit key. "
+                "Then publish the new TXT value it gives you in your DNS provider.")
     if provider == "Amazon SES":
         return ("In the AWS SES console > Verified identities > " + domain + " > Authentication (DKIM), confirm Easy DKIM "
                 "uses RSA_2048_BIT and re-publish the three CNAME records it lists in your DNS provider.")
@@ -52,9 +56,8 @@ def check_dkim(ctx, target):
             out.append(Result(f"dkim.{provider.lower().replace(' ', '_')}", domain, WARN,
                               f"No DKIM selector configured for {provider}",
                               why="Unlisted selectors aren't checked, so a broken or missing key there would go unnoticed.",
-                              fix=f"Add {provider}'s selector(s) to dkim_selectors for {domain} in config.json"
-                                  + (" (SES console > Verified identities > domain > DKIM shows the 3 tokens)."
-                                     if provider == "Amazon SES" else "."),
+                              fix=f"Add {provider}'s selector(s) to dkim_selectors for {domain} in config.json "
+                                  "(the TXT/CNAME records named <selector>._domainkey in your DNS provider).",
                               observed="(unconfigured)"))
 
     for selector, provider in selectors.items():

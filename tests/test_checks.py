@@ -66,6 +66,7 @@ def healthy_zone():
         ("amazonses.com", "TXT"): ["v=spf1 ip4:199.255.192.0/22 ~all"],
         ("google._domainkey." + ROOT, "TXT"): [KEY_2048],
         ("google2026._domainkey." + ROOT, "TXT"): [KEY_2048],
+        ("resend._domainkey." + ROOT, "TXT"): [KEY_1024.replace("v=DKIM1; k=rsa; ", "")],  # Resend publishes p= only
         ("_dmarc." + ROOT, "TXT"): [f"v=DMARC1; p=reject; rua=mailto:dmarc@{ROOT}"],
         (ROOT, "MX"): [(1, "smtp.google.com")],
         ("smtp.google.com", "A"): ["142.250.1.27"],
@@ -179,11 +180,18 @@ def test_spf_dns_timeout_is_error(cfg, tmp_path):
 
 # ----------------------------------------------------------------- DKIM
 
-def test_dkim_valid_and_ses_unconfigured(cfg, tmp_path):
+def test_dkim_google_and_resend(cfg, tmp_path):
     r = by_check(dkim.check_dkim(make_ctx(cfg, healthy_zone(), tmp_path), root_target(cfg)))
     assert r["dkim.google2026"].status == PASS and "2048-bit" in r["dkim.google2026"].title
-    assert r["dkim.amazon_ses"].status == WARN
+    assert r["dkim.resend"].status == WARN and "1024-bit" in r["dkim.resend"].title and "Resend" in r["dkim.resend"].fix
+    assert not any(k.startswith("dkim.") and "unconfigured" in str(v.observed) for k, v in r.items())
     assert r["dkim.google2026.age"].status == INFO
+
+
+def test_dkim_expected_provider_unconfigured(cfg, tmp_path):
+    t = {**root_target(cfg), "dkim_selectors": {"google2026": "Google Workspace"}}
+    r = by_check(dkim.check_dkim(make_ctx(cfg, healthy_zone(), tmp_path), t))
+    assert r["dkim.resend"].status == WARN and "No DKIM selector configured for Resend" in r["dkim.resend"].title
 
 
 def test_dkim_weak_missing_revoked(cfg, tmp_path):
