@@ -56,6 +56,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_schedule.ps1
 
 This creates the task "infra_audit daily". It runs at 7:43 AM, or as soon as the PC is on if it was off at that time.
 
+- Run a check yourself and see the results on screen: double-click `scripts\run_now.bat`.
 - Test it now: `powershell -Command "Start-ScheduledTask -TaskName 'infra_audit daily'"`
 - Remove it: `powershell -Command "Unregister-ScheduledTask -TaskName 'infra_audit daily' -Confirm:$false"`
 
