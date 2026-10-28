@@ -461,6 +461,27 @@ def test_gmail_forwarding_filters_aliases_vacation(cfg, tmp_path):
     assert g.check_vacation(ctx, box)[0].status == WARN
 
 
+def test_gmail_approved_filters_and_forwarding(cfg, tmp_path):
+    from infra_audit.checks import gmail_settings as g
+
+    box = f"sammy@{ROOT}"
+    ctx = gctx(cfg, tmp_path, {"filters": {"filter": [
+        {"criteria": {"query": "Hi Dylanlane"}, "action": {"removeLabelIds": ["INBOX"]}},
+        {"criteria": {"query": '"Dylan Lane"'}, "action": {"removeLabelIds": ["INBOX"]}},
+        {"criteria": {"from": "Guinevere Sassafras"}, "action": {"removeLabelIds": ["INBOX"]}},
+    ]}})
+    r = g.check_filters(ctx, box)[0]
+    assert r.status == PASS and "3 approved" in r.title
+    # an approved term doesn't excuse a filter that forwards somewhere unapproved
+    ctx = gctx(cfg, tmp_path, {"filters": {"filter": [
+        {"criteria": {"query": "Dylan Lane"}, "action": {"forward": "x@evil.example"}}]}})
+    assert g.check_filters(ctx, box)[0].status == FAIL
+    # an unrelated archive filter still warns
+    ctx = gctx(cfg, tmp_path, {"filters": {"filter": [
+        {"criteria": {"from": "bank.com"}, "action": {"removeLabelIds": ["INBOX"]}}]}})
+    assert g.check_filters(ctx, box)[0].status == WARN
+
+
 def test_gmail_api_error_is_error(cfg, tmp_path):
     from infra_audit.checks import gmail_settings as g
 

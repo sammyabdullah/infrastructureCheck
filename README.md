@@ -143,7 +143,7 @@ A **DNS sanity check** runs first: if `google.com` or `gmail.com` don't resolve,
 
 ## Configuration
 
-Everything site-specific is in `config.json`: domain, sending subdomains and which are active, SPF required/known/legacy includes, DKIM selectors, CNAME hosts to watch, expected DMARC policy, blocklists, mailboxes, allowlists (send-as, forwarding, delegates), the admin to impersonate, the bounce DB path, thresholds, and DNS/HTTP timeouts. Keys that start with `_` are notes.
+Everything site-specific is in `config.json`: domain, sending subdomains and which are active, SPF required/known/legacy includes, DKIM selectors, CNAME hosts to watch, expected DMARC policy, blocklists, mailboxes, allowlists (send-as, forwarding, delegates, and `allowed_filter_terms` for archive filters you created on purpose), the admin to impersonate, the bounce DB path, thresholds, and DNS/HTTP timeouts. Keys that start with `_` are notes.
 
 Notes:
 

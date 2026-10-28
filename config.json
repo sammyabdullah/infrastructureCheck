@@ -93,7 +93,13 @@
     "founder@blossomstreetventures.com",
     "cofounder@blossomstreetventures.com"
   ],
-  "allowed_forwarding": [],
+  "allowed_forwarding": [
+    "sammy@blossomstreetventures.com",
+    "s@blossomstreetventures.com",
+    "sammy@blossomstreet.co"
+  ],
+  "allowed_filter_terms": ["Dylan Lane", "Guinevere Sassafras"],
+  "_allowed_filter_terms_note": "Filters whose criteria contain one of these (case, spaces and quotes ignored, so DylanLane / \"Dylan Lane\" / Hi Dylanlane all match) may archive, delete or spam mail without a WARN. A filter that FORWARDS is still checked against allowed_forwarding.",
   "allowed_delegates": [],
 
   "google": {

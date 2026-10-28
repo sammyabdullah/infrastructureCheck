@@ -59,12 +59,19 @@ def describe_filter(f):
     return crit
 
 
+def _norm(text):
+    return "".join(ch for ch in text.lower() if ch.isalnum())
+
+
 def check_filters(ctx, mailbox):
     try:
         resp = execute(ctx.google.gmail(mailbox).users().settings().filters().list(userId="me"))
     except Exception as e:
         return [_api_error("gmail.filters", mailbox, e)]
-    flagged, worst = [], PASS
+    # Filters you've approved (config allowed_filter_terms) may archive/delete/spam
+    # mail; a filter that forwards is still judged against allowed_forwarding.
+    approved_terms = [_norm(t) for t in ctx.cfg.get("allowed_filter_terms", []) if _norm(t)]
+    flagged, approved, worst = [], 0, PASS
     for f in resp.get("filter", []):
         action = f.get("action", {})
         add, remove = action.get("addLabelIds", []), action.get("removeLabelIds", [])
@@ -80,12 +87,17 @@ def check_filters(ctx, mailbox):
             reasons.append("sends to spam")
         if "INBOX" in remove:
             reasons.append("skips inbox (auto-archive)")
+        if reasons and not fwd and any(t in _norm(describe_filter(f)) for t in approved_terms):
+            approved += 1
+            continue
         if reasons:
             flagged.append(f"[{describe_filter(f)}] {', '.join(reasons)}")
             if worst != FAIL:
                 worst = WARN
     if not flagged:
-        return [Result("gmail.filters", mailbox, PASS, f"{len(resp.get('filter', []))} filter(s), none hide or forward mail",
+        note = f" ({approved} approved archive filter(s) not counted)" if approved else ""
+        return [Result("gmail.filters", mailbox, PASS,
+                       f"{len(resp.get('filter', []))} filter(s), none unexpected hide or forward mail{note}",
                        observed="(none)")]
     return [Result("gmail.filters", mailbox, worst, f"{len(flagged)} filter(s) forward, delete or archive mail",
                    detail=" | ".join(flagged),

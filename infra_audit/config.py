@@ -85,6 +85,7 @@ def load_config(path):
     cfg.setdefault("allowed_send_as", list(cfg["mailboxes"]))
     cfg.setdefault("allowed_forwarding", [])
     cfg.setdefault("allowed_delegates", [])
+    cfg.setdefault("allowed_filter_terms", [])
     cfg.setdefault("google", {})
     cfg.setdefault("bounce_db", "")
     cfg.setdefault("history_db", "data/infra_audit.db")
