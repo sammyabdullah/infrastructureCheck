@@ -323,6 +323,14 @@ def test_drift_regression_and_change(tmp_path):
     assert when.startswith("2026-10-20")
 
 
+def test_drift_improvement_with_value_change_is_improved(tmp_path):
+    prev = {"spf.unknown|d": {"check": "spf.unknown", "target": "d", "status": WARN, "title": "", "observed": "x.example", "section": "dns"},
+            "dangling|h": {"check": "dangling", "target": "h", "status": INFO, "title": "", "observed": "(none)", "section": "dns"}}
+    changes = drift.compute(prev, [Result("spf.unknown", "d", PASS, "ok", observed="(none)"),
+                                   Result("spf.record", "d", PASS, "ok", observed="v=spf1 ~all")])
+    assert [(c.kind, c.check) for c in changes] == [(drift.IMPROVED, "spf.unknown")]
+
+
 def test_drift_error_is_not_regression(tmp_path):
     prev = {"spf.record|d": {"check": "spf.record", "target": "d", "status": PASS, "title": "", "observed": "x", "section": "dns"}}
     changes = drift.compute(prev, [Result("spf.record", "d", S_ERROR, "dns failed")])

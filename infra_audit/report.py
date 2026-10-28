@@ -51,7 +51,7 @@ def render_console(run, verbose=False, color=None):
     if not drift and c[FAIL] == 0 and c[WARN] == 0 and c[ERROR] == 0:
         note = ("first run, baseline saved" if run.get("report_path") else "first run") if run["first_run"] \
             else "no changes since last run"
-        lines.append(paint(f"✔ All healthy: {count_line(c)} · {run['local_time']} ({note})", PASS))
+        lines.append(paint(f"OK All healthy: {count_line(c)} · {run['local_time']} ({note})", PASS))
         if run.get("report_path"):
             lines.append(f"  Report: {run['report_path']}")
         return "\n".join(lines)
@@ -64,7 +64,7 @@ def render_console(run, verbose=False, color=None):
     elif drift:
         lines.append(paint.bold(f"DRIFT since last run ({run['previous_time']}): {len(drift)} change(s)"))
         for ch in drift:
-            arrow = f"{ch.before_status} → {ch.after_status}" if ch.after_status else f"was {ch.before_status}"
+            arrow = f"{ch.before_status} -> {ch.after_status}" if ch.after_status else f"was {ch.before_status}"
             lines.append(f"  {paint(f'{ch.kind:<12}', ch.kind)} {ch.target}: {ch.title}  [{arrow}]")
             if ch.before is not None or ch.after is not None:
                 if ch.kind in (REGRESSION, CHANGED) or ch.after is None:

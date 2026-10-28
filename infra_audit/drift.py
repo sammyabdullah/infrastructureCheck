@@ -45,10 +45,11 @@ def compute(previous, results):
             changes.append(Change(CHECK_FAILED, r.check, r.target, r.title, before, after))
         elif before != ERROR and after != ERROR and RANK[after] > RANK[before]:
             changes.append(Change(REGRESSION, r.check, r.target, r.title, before, after, p["observed"], r.observed))
+        elif before != ERROR and after != ERROR and RANK[after] < RANK[before]:
+            changes.append(Change(IMPROVED, r.check, r.target, r.title, before, after,
+                                  p["observed"] if value_changed else None, r.observed if value_changed else None))
         elif value_changed:
             changes.append(Change(CHANGED, r.check, r.target, r.title, before, after, p["observed"], r.observed))
-        elif before != ERROR and after != ERROR and RANK[after] < RANK[before]:
-            changes.append(Change(IMPROVED, r.check, r.target, r.title, before, after))
 
     # Keys that vanished. `previous` only holds sections that ran this time.
     # Skip families that ERRORed this run: their sub-results simply weren't
@@ -60,7 +61,7 @@ def compute(previous, results):
         if p["status"] in (WARN, FAIL):
             changes.append(Change(IMPROVED, p["check"], p["target"], p["title"] + " (no longer reported)",
                                   p["status"], ""))
-        elif p["observed"] is not None:
+        elif p["observed"] not in (None, "(none)"):
             changes.append(Change(REMOVED, p["check"], p["target"], p["title"], p["status"], "", p["observed"], None))
 
     changes.sort(key=lambda c: (ORDER[c.kind], c.check, c.target))
