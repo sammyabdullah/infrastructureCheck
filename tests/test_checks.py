@@ -131,6 +131,25 @@ def test_spf_domain_connect_managed_include(cfg, tmp_path):
     assert r["spf.unknown"].status == WARN and "sketchy.example" in r["spf.unknown"].title
 
 
+def test_spf_syntax_error_space_after_include(cfg, tmp_path):
+    zone = healthy_zone()
+    zone[(ROOT, "TXT")] = ["v=spf1 include: _spf.google.com ~all"]
+    r = by_check(spf.check_spf(make_ctx(cfg, zone, tmp_path), root_target(cfg)))
+    assert r["spf.syntax"].status == FAIL and "'include:'" in r["spf.syntax"].title
+    assert spf.syntax_errors("v=spf1 ip4:1.2.3.0/24 ip6:2001:db8::/32 a mx/24 include:x.example redirect=y.example -all") == []
+    assert spf.syntax_errors("v=spf1 ip4:300.1.1.1 inclde:x.example ~all") == ["ip4:300.1.1.1", "inclde:x.example"]
+
+
+def test_spf_repeated_nested_include_counts_each_time(cfg, tmp_path):
+    zone = healthy_zone()
+    zone[(ROOT, "TXT")] = ["v=spf1 include:a.example include:b.example ~all"]
+    zone[("a.example", "TXT")] = ["v=spf1 include:shared.example ~all"]
+    zone[("b.example", "TXT")] = ["v=spf1 include:shared.example ~all"]
+    zone[("shared.example", "TXT")] = ["v=spf1 a mx ~all"]
+    count, *_ = spf.count_lookups(FakeDns(zone), zone[(ROOT, "TXT")][0], seen={ROOT})
+    assert count == 8  # 2 x (include a/b + include shared + a + mx)
+
+
 def test_spf_multiple_records_fail(cfg, tmp_path):
     zone = healthy_zone()
     zone[(ROOT, "TXT")] = ["v=spf1 include:_spf.google.com ~all", "v=spf1 include:servers.mcsv.net -all"]
@@ -480,6 +499,28 @@ def test_gmail_approved_filters_and_forwarding(cfg, tmp_path):
     ctx = gctx(cfg, tmp_path, {"filters": {"filter": [
         {"criteria": {"from": "bank.com"}, "action": {"removeLabelIds": ["INBOX"]}}]}})
     assert g.check_filters(ctx, box)[0].status == WARN
+
+
+def test_gmail_forward_filter_to_approved_address_is_fine(cfg, tmp_path):
+    from infra_audit.checks import gmail_settings as g
+
+    ctx = gctx(cfg, tmp_path, {"filters": {"filter": [
+        {"criteria": {"from": "deals@x.com"}, "action": {"forward": f"s@{ROOT}"}}]}})
+    assert g.check_filters(ctx, f"sammy@{ROOT}")[0].status == PASS
+
+
+def test_old_reports_are_pruned(tmp_path):
+    import time as _t
+    from infra_audit import report
+
+    old, new, other = (tmp_path / "infra_audit_2026-01-01_000000.md", tmp_path / "infra_audit_2026-10-29_000000.md",
+                       tmp_path / "notes.md")
+    for p in (old, new, other):
+        p.write_text("x")
+    os.utime(old, (_t.time() - 100 * 86400,) * 2)
+    os.utime(other, (_t.time() - 100 * 86400,) * 2)
+    report.prune_reports(str(tmp_path), 90)
+    assert not old.exists() and new.exists() and other.exists()
 
 
 def test_gmail_api_error_is_error(cfg, tmp_path):

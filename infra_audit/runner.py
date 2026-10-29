@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from .checks import CHECKS
 from .google_api import Google
-from .result import Result, error
+from .result import error
 
 
 @dataclass

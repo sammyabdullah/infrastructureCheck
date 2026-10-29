@@ -1,9 +1,12 @@
 """SPF: one record, required includes present, sane `all`, <= 10 DNS lookups."""
 
+import ipaddress
+
 from ..dnsutil import txt_starting
 from ..result import ERROR, FAIL, INFO, PASS, WARN, Result, error
 
 LOOKUP_MECHANISMS = {"include", "a", "mx", "ptr", "exists"}
+MECHANISMS = LOOKUP_MECHANISMS | {"all", "ip4", "ip6"}
 WHY_SPF = "Receivers use SPF to decide whether a server may send as your domain; a broken SPF hurts inbox placement."
 
 
@@ -24,6 +27,28 @@ def _mech(term):
     return q, name.lower(), value
 
 
+def syntax_errors(record):
+    """Terms a receiver would reject as a permanent error (e.g. 'include: x' with a stray space)."""
+    bad = []
+    for term in split_terms(record):
+        q, name, value = _mech(term)
+        if q == "":  # modifier: redirect=/exp= need a value; unknown modifiers are allowed
+            if name in ("redirect", "exp") and not value:
+                bad.append(term)
+        elif name not in MECHANISMS:
+            bad.append(term)
+        elif name in ("include", "exists") and not value:
+            bad.append(term)
+        elif name in ("ip4", "ip6"):
+            try:
+                net = ipaddress.ip_network(value, strict=False)
+                if net.version != (4 if name == "ip4" else 6):
+                    bad.append(term)
+            except ValueError:
+                bad.append(term)
+    return bad
+
+
 def count_lookups(dns, record, seen=None, depth=0):
     """Recursively count SPF DNS lookups.
 
@@ -32,7 +57,9 @@ def count_lookups(dns, record, seen=None, depth=0):
     whose lookup failed (so the count is incomplete), and `per_include` maps
     each top-level include to the lookups it costs (itself + nested).
     """
-    seen = set() if seen is None else seen
+    # `seen` holds the includes above this one (loop protection only): receivers
+    # re-evaluate an include each time it appears, so repeats count every time.
+    seen = frozenset() if seen is None else frozenset(seen)
     count, stale, errors, per_include = 0, [], [], {}
     for term in split_terms(record):
         q, name, value = _mech(term)
@@ -40,7 +67,6 @@ def count_lookups(dns, record, seen=None, depth=0):
             target = value.lower().rstrip(".")
             cost = 1
             if target and target not in seen and depth < 10:
-                seen.add(target)
                 ans = dns.query(target, "TXT")
                 if ans.failed:
                     errors.append(target)
@@ -49,7 +75,7 @@ def count_lookups(dns, record, seen=None, depth=0):
                     if not records:
                         stale.append(target)
                     else:
-                        sub_count, sub_stale, sub_err, _ = count_lookups(dns, records[0], seen, depth + 1)
+                        sub_count, sub_stale, sub_err, _ = count_lookups(dns, records[0], seen | {target}, depth + 1)
                         cost += sub_count
                         stale += sub_stale
                         errors += sub_err
@@ -119,6 +145,18 @@ def check_spf(ctx, target):
                        observed=" | ".join(sorted(records)))]
     record = records[0]
     out.append(Result("spf.record", domain, PASS, "One SPF record", detail=record, observed=record))
+
+    bad = syntax_errors(record)
+    if bad:
+        out.append(Result("spf.syntax", domain, FAIL, "SPF syntax error: " + ", ".join(f"'{b}'" for b in bad),
+                          detail=record,
+                          why="Receivers treat a malformed SPF record as a permanent error, so SPF fails for all your "
+                              "mail (and with p=reject, mail that also lacks DKIM is rejected).",
+                          fix=f"In your DNS provider, fix the TXT record at {domain}. A common cause is a space after "
+                              "'include:'. Correct form: " + suggested,
+                          observed=",".join(bad)))
+    else:
+        out.append(Result("spf.syntax", domain, PASS, "SPF syntax valid", observed="ok"))
 
     terms = [_mech(term) for term in split_terms(record)]
 

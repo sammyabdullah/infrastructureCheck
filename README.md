@@ -15,19 +15,23 @@ It works the same way as mailerdemon, HardBounceCheck, Engagement-Tracker and Bl
 
 ## Setup
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+Windows Command Prompt, from the `infrastructureCheck` folder:
+
+```
+py -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-1. **Service account key.** Copy (or symlink) the same `service_account.json` that HardBounceCheck and Engagement-Tracker use into this folder, or point `google.service_account_file` in `config.json` at it. It is gitignored.
+1. **Service account key.** Copy the same `service_account.json` that HardBounceCheck and Engagement-Tracker use into this folder, or point `google.service_account_file` in `config.json` at it. It is gitignored.
 2. **Bounce database (optional).** `bounce_db` in `config.json` is set to `../../Old claude/Claude Hard Bounce Check/bounces.db` (relative to this folder). Change it if that file moves. If the file isn't there, the bounce check is skipped silently.
-3. **DKIM selectors.** `dkim_selectors` lists every DKIM key to check: `google2026` (Google Workspace, rotated to 2048-bit on 2026-10-27) and `resend` (Resend). If you add a sending service, add its selector there; its DNS record is named `<selector>._domainkey`.
+3. **DKIM selectors.** `dkim_selectors` lists every DKIM key to check: `google2026` (Google Workspace, rotated to 2048-bit on 2026-10-27), `resend` (Resend) and `brevo1`/`brevo2` (Brevo). If you add a sending service, add its selector there; its DNS record is named `<selector>._domainkey`.
 
 ## Usage
 
-```bash
+```
+cd /d "C:\Users\sammy\Dropbox\The Dan\DAN Fund\Claude Infrastructure Check\infrastructureCheck"
+.venv\Scripts\activate
 python -m infra_audit                    # everything
 python -m infra_audit --only dns         # just DNS/auth (repeatable: --only dns --only reputation)
 python -m infra_audit --only reputation
@@ -85,7 +89,7 @@ The console report is ordered like this:
 
 If everything passes and nothing changed, you get one line with the counts and the time.
 
-Each run is stored in `data/infra_audit.db` and also written to `reports/infra_audit_YYYY-MM-DD_HHMMSS.md`, which lists every item, including PASS and INFO.
+Each run is stored in `data/infra_audit.db` and also written to `reports/infra_audit_YYYY-MM-DD_HHMMSS.md`, which lists every item, including PASS and INFO. Report files older than `reports_keep_days` (90) are deleted automatically; the full history stays in the database.
 
 Using `--only` compares each section against the most recent run that included that section. A section that couldn't run at all (broken DNS, missing key) is neither compared nor saved as a baseline.
 
@@ -125,13 +129,13 @@ Until you approve it, those checks show a single INFO line: "Account security ch
 
 | Section | Check | Notes |
 |---|---|---|
-| dns | SPF | Exactly one record; required includes (`_spf.google.com` on root, `amazonses.com` on `send.`); `+all`/`?all` FAIL, no `~all`/`-all` WARN; recursive DNS-lookup count (WARN at 8, FAIL over 10); includes with no SPF record (FAIL: permerror); legacy includes (`servers.mcsv.net`, Mailchimp) flagged as removable with the lookups that removing them frees; unrecognized includes WARN. |
+| dns | SPF | Exactly one record; valid syntax (e.g. a stray space in `include: x` is a FAIL); required includes (`_spf.google.com` on root, `amazonses.com` on `send.`); `+all`/`?all` FAIL, no `~all`/`-all` WARN; recursive DNS-lookup count (WARN at 8, FAIL over 10); includes with no SPF record (FAIL: permerror); legacy includes (`spf_legacy_includes`, e.g. Mailchimp's `servers.mcsv.net`) flagged as removable with the lookups that removing them frees; includes on your own domain (Resend's `dc-…._spfm.send` record) are judged by what they contain; unrecognized includes WARN. |
 | dns | DKIM | Each configured selector resolves to a parseable key; WARN under 2048 bits. DNS can't reveal a key's age, so infra_audit records when it first saw each key and WARNs after `dkim_key_age_warn_days`. |
 | dns | DMARC | One record; `p=` must be at least `reject` (anything less is a FAIL); `sp=`, `pct`, alignment; `rua`/`ruf` syntax; external report domains must publish `<yourdomain>._report._dmarc.<theirdomain>`. Subdomains without their own record inherit the root's `sp=`/`p=`. Warns on `aspf=s` because Resend's `send.` bounce subdomain needs relaxed SPF alignment. |
 | dns | MX | Present, all hosts at the expected provider (Google for root, `amazonses.com` feedback MX for `send.`), primary priority sane, hosts resolve. Unexpected changes appear in drift. |
 | dns | MTA-STS / TLS-RPT / BIMI / CAA / DNSSEC | INFO when absent, each with a one-line note on what it does. An MTA-STS policy that's unreachable, or that doesn't cover your MX in enforce mode, is a FAIL. A DS record with no DNSKEY is a FAIL. |
 | dns | Nameservers | Queries every authoritative server directly: lame servers, disagreeing NS sets, SOA serial mismatch, and whether the registrar's `.com` delegation matches the zone. |
-| dns | Dangling CNAMEs | Hosts in `cname_hosts` plus every DKIM selector. A CNAME whose target is NXDOMAIN is a FAIL (takeover risk). The legacy Mailchimp `k2`/`k3` CNAMEs are checked only for this, and are reported as INFO "safe to delete" if they still resolve. |
+| dns | Dangling CNAMEs | Hosts in `cname_hosts` plus every DKIM selector. A CNAME whose target is NXDOMAIN is a FAIL (takeover risk). Old records marked "not used" in `cname_hosts` (Mailchimp, GoDaddy email) are reported as INFO "safe to delete" if they ever reappear. |
 | dns | Registration (RDAP) | Expiry (WARN at 60 days, FAIL at 14) and registrar transfer lock. |
 | dns | TLS | Website certificate (`website_hosts`) and MX STARTTLS certificate: validity and expiry. The MX STARTTLS check is off by default here (`check_mx_starttls`), because your ISP blocks outbound port 25. |
 | reputation | Domain blocklists | Spamhaus DBL, SURBL, URIBL black, and SEM URIBL, for the root domain and `send.`. IP lists are skipped, because Google's outbound IPs are shared. NXDOMAIN means clean. Timeouts, and the lists' "query refused" return codes, are ERROR, never clean. Lists with a published test entry are also probed with it, so a list that silently stopped answering can't look clean. |
@@ -148,7 +152,7 @@ Everything site-specific is in `config.json`: domain, sending subdomains and whi
 
 Notes:
 
-- Keep `network.dns_nameservers` empty, so your Mac's resolver is used. Spamhaus and URIBL refuse queries that come through big public resolvers like 8.8.8.8 and 1.1.1.1.
+- Keep `network.dns_nameservers` empty, so your PC's normal resolver is used. Spamhaus and URIBL refuse queries that come through big public resolvers like 8.8.8.8 and 1.1.1.1.
 - To stop checking a subdomain, set `"active": false` on it.
 
 ## Adding or removing a check

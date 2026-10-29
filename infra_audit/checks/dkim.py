@@ -33,8 +33,10 @@ def key_bits(p_value, key_type="rsa"):
 def regenerate_fix(provider, selector, domain):
     if provider == "Google Workspace":
         return ("In Google Admin console > Apps > Google Workspace > Gmail > Authenticate email, pick "
-                f"{domain}, click 'Generate new record' with 2048-bit key length, publish the TXT value it shows at "
-                f"{selector}._domainkey.{domain} in your DNS provider, wait for it to resolve, then click 'Start authentication'.")
+                f"{domain}, click 'Generate new record' (2048-bit) with a NEW prefix selector (e.g. google{datetime.now().year + 1}), "
+                "add that TXT record in your DNS provider (keep the current one), wait until it resolves, then click "
+                "'Stop authentication' and 'Start authentication'. Update dkim_selectors in config.json, and delete the "
+                "old record a week later.")
     if provider == "Resend":
         return ("Resend generates this key. In the Resend dashboard > Domains > " + domain + ", look for an option to "
                 "regenerate/rotate the DKIM key at 2048 bits; if there isn't one, ask Resend support for a 2048-bit key. "

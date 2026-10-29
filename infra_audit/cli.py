@@ -74,7 +74,7 @@ def main(argv=None):
         saved_sections = [s for s in sections if s not in skipped]
         history.save(ctx.now.isoformat(), saved_sections, [r for r in results if r.section in saved_sections],
                      data["counts"])
-        data["report_path"] = report.write_markdown(data, cfg.path("reports_dir"))
+        data["report_path"] = report.write_markdown(data, cfg.path("reports_dir"), cfg.get("reports_keep_days", 90))
 
     if args.json:
         print(report.to_json(data))

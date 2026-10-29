@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import time
 from collections import Counter
 
 from .drift import CHECK_FAILED, CHANGED, IMPROVED, REGRESSION
@@ -151,6 +152,17 @@ def _md(value):
     return "" if value is None else _short(value, 80).replace("|", "\\|")
 
 
+def prune_reports(reports_dir, keep_days):
+    """Delete this tool's own dated reports older than keep_days (history stays in SQLite)."""
+    if not keep_days:
+        return
+    cutoff = time.time() - keep_days * 86400
+    for name in os.listdir(reports_dir):
+        path = os.path.join(reports_dir, name)
+        if name.startswith("infra_audit_") and name.endswith(".md") and os.path.getmtime(path) < cutoff:
+            os.remove(path)
+
+
 def to_json(run):
     return json.dumps({
         "domain": run["domain"],
@@ -166,8 +178,9 @@ def to_json(run):
     }, indent=2)
 
 
-def write_markdown(run, reports_dir):
+def write_markdown(run, reports_dir, keep_days=90):
     os.makedirs(reports_dir, exist_ok=True)
+    prune_reports(reports_dir, keep_days)
     path = os.path.join(reports_dir, f"infra_audit_{run['file_stamp']}.md")
     with open(path, "w", encoding="utf-8") as f:
         f.write(render_markdown(run))

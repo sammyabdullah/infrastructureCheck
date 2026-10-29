@@ -5,7 +5,7 @@ import fnmatch
 import requests
 
 from ..dnsutil import txt_starting
-from ..result import FAIL, INFO, PASS, WARN, Result, error
+from ..result import FAIL, INFO, PASS, Result, error
 
 MTA_STS_NOTE = ("MTA-STS tells other mail servers to require encrypted (TLS) delivery to your MX, blocking "
                 "downgrade/interception attacks on inbound mail.")

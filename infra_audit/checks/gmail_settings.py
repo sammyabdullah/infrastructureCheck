@@ -77,10 +77,11 @@ def check_filters(ctx, mailbox):
         add, remove = action.get("addLabelIds", []), action.get("removeLabelIds", [])
         reasons = []
         fwd = action.get("forward")
+        if fwd and fwd.lower() in ctx.cfg["allowed_forwarding"]:
+            fwd = None  # forwarding to an approved address of yours
         if fwd:
             reasons.append(f"forwards to {fwd}")
-            if fwd.lower() not in ctx.cfg["allowed_forwarding"]:
-                worst = FAIL
+            worst = FAIL
         if "TRASH" in add:
             reasons.append("auto-deletes")
         if "SPAM" in add:

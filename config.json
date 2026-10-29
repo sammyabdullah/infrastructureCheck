@@ -118,6 +118,7 @@
 
   "history_db": "data/infra_audit.db",
   "reports_dir": "reports",
+  "reports_keep_days": 90,
 
   "thresholds": {
     "spf_lookups_warn": 8,
