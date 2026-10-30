@@ -6,31 +6,20 @@
   "sending_domains": [
     {
       "domain": "blossomstreetventures.com",
-      "label": "Google Workspace (5 mailboxes) + Resend + Brevo",
+      "label": "Google Workspace (5 mailboxes) + Brevo",
       "active": true,
       "spf_required_includes": ["_spf.google.com"],
       "spf_known_includes": [],
       "spf_legacy_includes": ["servers.mcsv.net"],
       "dkim_selectors": {
         "google2026": "Google Workspace",
-        "resend": "Resend",
         "brevo1": "Brevo",
         "brevo2": "Brevo"
       },
+      "_resend_note": "Resend records (resend._domainkey, send MX/TXT, dc-fd741b8612._spfm.send) were leftovers: blossomstreetventures.com isn't a Resend domain. Removed 2026-10-30.",
       "_dkim_rotation_note": "Rotated from the 1024-bit 'google' selector to 2048-bit 'google2026' on 2026-10-27. Delete the old google._domainkey TXT record in GoDaddy after ~2026-11-03.",
-      "dkim_expected_providers": ["Google Workspace", "Resend", "Brevo"],
+      "dkim_expected_providers": ["Google Workspace", "Brevo"],
       "mx_expected_suffixes": ["google.com", "googlemail.com"]
-    },
-    {
-      "domain": "send.blossomstreetventures.com",
-      "label": "Resend bounce subdomain (Resend delivers through Amazon SES, hence amazonses.com)",
-      "active": true,
-      "spf_required_includes": ["amazonses.com"],
-      "spf_known_includes": [],
-      "spf_legacy_includes": [],
-      "dkim_selectors": {},
-      "dkim_expected_providers": [],
-      "mx_expected_suffixes": ["amazonses.com"]
     }
   ],
 
