@@ -416,6 +416,7 @@ def test_hard_bounces_from_hardbouncecheck_db(cfg, tmp_path):
     r = {x.target: x for x in results if x.check == "bounces.hard_7d"}
     fresh = {x.target: x for x in results if x.check == "bounces.fresh"}
     assert r[f"sammy@{ROOT}"].status == WARN and "1.5%" in r[f"sammy@{ROOT}"].title   # 6 / 400
+    assert "a0@x.com" in r[f"sammy@{ROOT}"].detail and "old@x.com" not in r[f"sammy@{ROOT}"].detail
     assert r[f"s@{ROOT}"].status == PASS and "0.7%" in r[f"s@{ROOT}"].title            # 6 / 900
     assert r[f"partner@{ROOT}"].status == PASS and "0.0%" in r[f"partner@{ROOT}"].title
     assert r[f"founder@{ROOT}"].status == INFO and "unavailable" in r[f"founder@{ROOT}"].detail

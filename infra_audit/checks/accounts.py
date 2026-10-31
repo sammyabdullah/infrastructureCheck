@@ -195,18 +195,20 @@ def check_hard_bounces(ctx):
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
             rows = conn.execute(
-                "SELECT sending_mailboxes FROM bounces WHERE bounce_type = 'HARD' AND last_seen >= ?", (cutoff,)
+                "SELECT email, sending_mailboxes FROM bounces WHERE bounce_type = 'HARD' AND last_seen >= ? "
+                "ORDER BY last_seen DESC", (cutoff,)
             ).fetchall()
         finally:
             conn.close()
     except sqlite3.Error:
         return []  # different schema / unreadable: skip silently as requested
-    counts = {m: 0 for m in ctx.cfg["mailboxes"]}
-    for (mailboxes,) in rows:
+    bounced = {m: [] for m in ctx.cfg["mailboxes"]}
+    for email, mailboxes in rows:
         for m in (mailboxes or "").split(","):
             m = m.strip().lower()
-            if m in counts:
-                counts[m] += 1
+            if m in bounced:
+                bounced[m].append(email)
+    counts = {m: len(v) for m, v in bounced.items()}
     last_scan = _last_bounce_scan(path, ctx.cfg["mailboxes"])
     sent = _sent_last_7_days(ctx)
     t = ctx.cfg.thresholds
@@ -222,11 +224,11 @@ def check_hard_bounces(ctx):
                               fix="Run HardBounceCheck (python main.py in its folder) at least weekly, then re-run infra_audit."))
         else:
             out.append(Result("bounces.fresh", m, PASS, f"Bounce data current (scanned {scanned.date()})"))
-        out.append(_grade_bounces(m, n, sent.get(m), t, path))
+        out.append(_grade_bounces(m, n, sent.get(m), t, path, bounced[m]))
     return out
 
 
-def _grade_bounces(mailbox, bounced, sent, t, path):
+def _grade_bounces(mailbox, bounced, sent, t, path, addresses=()):
     if not sent:
         return Result("bounces.hard_7d", mailbox, INFO, f"{bounced} hard-bounced addresses in the last 7 days",
                       detail="Sent count unavailable, so no bounce rate." if sent is None else "Nothing sent in 7 days.")
@@ -236,10 +238,11 @@ def _grade_bounces(mailbox, bounced, sent, t, path):
     if status == PASS:
         return Result("bounces.hard_7d", mailbox, PASS, title)
     return Result("bounces.hard_7d", mailbox, status, title,
-                  detail=f"Bounces from {path}",
+                  detail="Bounced addresses (most recent first): " + ", ".join(addresses[:25])
+                         + (f" ... and {len(addresses) - 25} more" if len(addresses) > 25 else ""),
                   why="Gmail and Outlook start throttling or spam-foldering senders whose hard bounce rate nears 2%.",
-                  fix="Run HardBounceCheck with --contacts and remove everything in removal_list.csv from your send "
-                      "lists; run new lists through mailerdemon before sending.")
+                  fix="Remove the addresses listed above from your send list (e.g. the MailMerge sheet) so this mailbox "
+                      "doesn't email them again, and run new lists through mailerdemon before sending.")
 
 
 def _sent_last_7_days(ctx):
