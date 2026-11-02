@@ -25,6 +25,8 @@ def parse_args(argv=None):
     p.add_argument("--verbose", "-v", action="store_true", help="also list PASS and INFO items")
     p.add_argument("--no-save", action="store_true", help="don't record this run in history or write a report file")
     p.add_argument("--no-color", action="store_true", help="disable ANSI colors")
+    p.add_argument("--last", action="store_true",
+                   help="show the most recent saved run (e.g. this morning's automatic one) without running again")
     return p.parse_args(argv)
 
 
@@ -37,6 +39,13 @@ def main(argv=None):
     if not os.path.exists(args.config):
         sys.exit(f"Config not found: {args.config} (pass --config path/to/config.json)")
     cfg = load_config(args.config)
+    last_path = os.path.join(os.path.dirname(cfg.path("history_db")), "last_run.txt")
+    if args.last:
+        if not os.path.exists(last_path):
+            sys.exit("No saved run yet. Run: python -m infra_audit")
+        with open(last_path, encoding="utf-8") as f:
+            print(f.read())
+        return 0
     sections = [s for s in SECTIONS if s in (args.only or SECTIONS)]
 
     net = cfg.net
@@ -75,6 +84,9 @@ def main(argv=None):
         history.save(ctx.now.isoformat(), saved_sections, [r for r in results if r.section in saved_sections],
                      data["counts"])
         data["report_path"] = report.write_markdown(data, cfg.path("reports_dir"), cfg.get("reports_keep_days", 90))
+        # Plain-text copy of this run's console report, for --last.
+        with open(last_path, "w", encoding="utf-8") as f:
+            f.write(report.render_console(data, color=False) + "\n")
 
     if args.json:
         print(report.to_json(data))

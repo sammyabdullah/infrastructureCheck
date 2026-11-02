@@ -39,6 +39,7 @@ python -m infra_audit --only mailboxes
 python -m infra_audit --json             # machine-readable output
 python -m infra_audit --verbose          # also list every PASS/INFO
 python -m infra_audit --no-save          # don't record history or write a report
+python -m infra_audit --last             # show the most recent run (e.g. this morning's) without re-running
 ```
 
 Exit codes: `0` healthy, `1` WARN or ERROR present, `2` a FAIL or a regression.

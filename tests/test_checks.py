@@ -542,3 +542,19 @@ def test_gmail_api_error_is_error(cfg, tmp_path):
     ctx.google = Boom()
     r = g.check_delegates(ctx, f"s@{ROOT}")[0]
     assert r.status == S_ERROR and "gmail.readonly" in r.title
+
+
+
+def test_last_shows_saved_run(tmp_path, capsys):
+    from infra_audit import cli
+
+    cfg = json.load(open(CONFIG))
+    cfg.update(history_db=str(tmp_path / "data" / "h.db"), reports_dir=str(tmp_path / "reports"))
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(json.dumps(cfg))
+    with pytest.raises(SystemExit):
+        cli.main(["--config", str(cfg_path), "--last"])  # nothing saved yet
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "last_run.txt").write_text("Summary: 0 FAIL · 1 WARN", encoding="utf-8")
+    assert cli.main(["--config", str(cfg_path), "--last"]) == 0
+    assert "0 FAIL" in capsys.readouterr().out
