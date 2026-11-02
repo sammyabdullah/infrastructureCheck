@@ -51,7 +51,7 @@ Exit codes: `0` healthy, `1` WARN or ERROR present, `2` a FAIL or a regression.
 1. HardBounceCheck (`..\..\Old claude\Claude Hard Bounce Check`), so the bounce data is fresh.
 2. A full infra_audit run.
 
-Everything it prints is appended to `data\scheduled_run.log`. If infra_audit finds a FAIL or a regression, the new report opens in Notepad. WARNs alone don't pop anything up.
+Everything it prints is appended to `data\scheduled_run.log`. When it finishes, a Command Prompt window opens with the results. Its title reads **all good**, **warnings, nothing new**, or **ACTION NEEDED** (a FAIL or something got worse). If the audit couldn't finish, the window shows the end of the log instead.
 
 Register it once, from the `infrastructureCheck` folder:
 
