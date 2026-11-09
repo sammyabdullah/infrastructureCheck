@@ -6,7 +6,23 @@ import requests
 
 from ..result import FAIL, PASS, WARN, Result, error
 
-RDAP_BOOTSTRAP = "https://rdap.org/domain/{}"
+# rdap.org redirects to the registry; .com can also be asked directly (Verisign).
+RDAP_URLS = ["https://rdap.org/domain/{}", "https://rdap.verisign.com/com/v1/domain/{}"]
+
+
+def _fetch_rdap(domain, timeout):
+    """RDAP JSON for the domain, trying each server twice. Raises the last error."""
+    last = None
+    urls = RDAP_URLS if domain.endswith(".com") else RDAP_URLS[:1]
+    for url in urls:
+        for _ in range(2):
+            try:
+                resp = requests.get(url.format(domain), timeout=timeout, headers={"Accept": "application/rdap+json"})
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:  # network blips are common here; try again / the next server
+                last = e
+    raise last
 
 
 def _registrar(data):
@@ -21,10 +37,7 @@ def _registrar(data):
 def check_registration(ctx):
     domain = ctx.cfg.root
     try:
-        resp = requests.get(RDAP_BOOTSTRAP.format(domain), timeout=ctx.cfg.net["http_timeout"],
-                            headers={"Accept": "application/rdap+json"})
-        resp.raise_for_status()
-        data = resp.json()
+        data = _fetch_rdap(domain, ctx.cfg.net["http_timeout"])
     except Exception as e:
         return [error("registration", domain, "RDAP lookup failed", f"{type(e).__name__}: {e}")]
 

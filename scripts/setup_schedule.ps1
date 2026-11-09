@@ -15,6 +15,9 @@ if (-not (Test-Path $python)) { throw "Missing $python - create the venv first (
 
 $action = New-ScheduledTaskAction -Execute $bat -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Daily -At 7:43am
+# A start time with a UTC offset makes Windows keep the absolute time, so the run
+# drifts an hour when daylight saving changes. Without an offset it stays at 7:43 local.
+$trigger.StartBoundary = (Get-Date -Hour 7 -Minute 43 -Second 0).ToString("yyyy-MM-dd'T'HH:mm:ss")
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 

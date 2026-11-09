@@ -19,7 +19,7 @@ def counts(results):
 
 
 def count_line(c):
-    return " · ".join(f"{c[s]} {s}" for s in (FAIL, WARN, ERROR, PASS, INFO))
+    return " | ".join(f"{c[s]} {s}" for s in (FAIL, WARN, ERROR, PASS, INFO))
 
 
 def _sorted(results, statuses):
@@ -29,7 +29,7 @@ def _sorted(results, statuses):
 
 def _short(value, n=110):
     value = "(none)" if value is None else str(value)
-    return value if len(value) <= n else value[: n - 1] + "…"
+    return value if len(value) <= n else value[: n - 3] + "..."
 
 
 class Painter:
@@ -47,12 +47,12 @@ def render_console(run, verbose=False, color=None):
     paint = Painter(sys.stdout.isatty() if color is None else color)
     results, drift, c = run["results"], run["drift"], run["counts"]
     lines = []
-    header = f"infra_audit · {run['domain']} · {run['local_time']} · {run['elapsed']:.1f}s · sections: {', '.join(run['sections'])}"
+    header = f"infra_audit | {run['domain']} | {run['local_time']} | {run['elapsed']:.1f}s | sections: {', '.join(run['sections'])}"
 
     if not drift and c[FAIL] == 0 and c[WARN] == 0 and c[ERROR] == 0:
         note = ("first run, baseline saved" if run.get("report_path") else "first run") if run["first_run"] \
             else "no changes since last run"
-        lines.append(paint(f"OK All healthy: {count_line(c)} · {run['local_time']} ({note})", PASS))
+        lines.append(paint(f"OK All healthy: {count_line(c)} | {run['local_time']} ({note})", PASS))
         if run.get("report_path"):
             lines.append(f"  Report: {run['report_path']}")
         return "\n".join(lines)

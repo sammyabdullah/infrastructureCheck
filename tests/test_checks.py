@@ -555,6 +555,6 @@ def test_last_shows_saved_run(tmp_path, capsys):
     with pytest.raises(SystemExit):
         cli.main(["--config", str(cfg_path), "--last"])  # nothing saved yet
     (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "last_run.txt").write_text("Summary: 0 FAIL · 1 WARN", encoding="utf-8")
+    (tmp_path / "data" / "last_run.txt").write_text("Summary: 0 FAIL | 1 WARN", encoding="utf-8")
     assert cli.main(["--config", str(cfg_path), "--last"]) == 0
     assert "0 FAIL" in capsys.readouterr().out
